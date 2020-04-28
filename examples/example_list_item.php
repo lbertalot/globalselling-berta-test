@@ -28,16 +28,22 @@ if($_GET['code']) {
 	// We construct the item to POST
 	$item = array(
 		"title" => "Item De Teste - Por Favor, Não Ofertar! --kc:off",
-        "category_id" => "MLB257111",
-        "price" => 10,
-        "currency_id" => "BRL",
+				"site_id" => "CBT",
+				"category_id" => "CBT11796",
+        "price" => 100,
+        "currency_id" => "USD",
         "available_quantity" => 1,
         "buying_mode" => "buy_it_now",
-        "listing_type_id" => "bronze",
+        "listing_type_id" => "gold_pro",
         "condition" => "new",
         "description" => array ("plain_text" => "Item de Teste. Mercado Livre's PHP SDK."),
         "video_id" => "RXWn6kftTHY",
         "warranty" => "12 month",
+				"sale_terms" => array(
+						array(
+								"id" => "WARRANTY_TIME","value_name" => "90 days"
+						)
+				),
         "pictures" => array(
             array(
                 "source" => "https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/IPhone_7_Plus_Jet_Black.svg/440px-IPhone_7_Plus_Jet_Black.svg.png"
@@ -101,7 +107,7 @@ if($_GET['code']) {
             )
         )
     );
-	
+
 	// We call the post request to list a item
 	echo '<pre>';
 	print_r($meli->post('/items', $item, array('access_token' => $_SESSION['access_token'])));
@@ -111,4 +117,3 @@ if($_GET['code']) {
 
 	echo '<a href="' . $meli->getAuthUrl($redirectURI, Meli::$AUTH_URL['MLB']) . '">Login using MercadoLibre oAuth 2.0</a>';
 }
-
