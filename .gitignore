@@ -1,0 +1,33 @@
+# Composer
+/vendor/
+composer.lock
+
+# Tests
+/tests/_reports/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Temporary files
+*.tmp
+*.bak
+
+# PHPUnit
+.phpunit.result.cache
+
+# Config with credentials (if applicable)
+# configApp.php
+

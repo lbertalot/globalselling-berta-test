@@ -3,9 +3,9 @@
 class Meli {
 
 	/**
-	 * @version 2.0.1
+	 * @version 2.1.0
 	 */
-    const VERSION  = "2.0.1";
+    const VERSION  = "2.1.0";
 
     /**
      * @var $API_ROOT_URL is a main URL to access the Meli API's.
@@ -34,7 +34,7 @@ class Meli {
      * Configuration for CURL
      */
     public static $CURL_OPTS = array(
-        CURLOPT_USERAGENT => "MELI-PHP-SDK-2.0.1", 
+        CURLOPT_USERAGENT => "MELI-PHP-SDK-2.1.0", 
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_CONNECTTIMEOUT => 10, 
         CURLOPT_RETURNTRANSFER => 1, 
@@ -46,6 +46,11 @@ class Meli {
     protected $redirect_uri;
     protected $access_token;
     protected $refresh_token;
+    
+    /**
+     * @var resource|null Static cURL handle for connection reuse (Connection Pooling)
+     */
+    private $curlHandle = null;
 
     /**
      * Constructor method. Set all variables to connect in Meli
@@ -282,7 +287,24 @@ class Meli {
     }
 
     /**
+     * Get or create a reusable cURL handle (Connection Pooling - Sprint 2)
+     * This improves performance by reusing SSL/TCP connections
+     * 
+     * @return resource cURL handle
+     */
+    private function getCurlHandle() {
+        if ($this->curlHandle === null) {
+            $this->curlHandle = curl_init();
+            if ($this->curlHandle === false) {
+                return false;
+            }
+        }
+        return $this->curlHandle;
+    }
+    
+    /**
      * Execute all requests and returns the json body and headers
+     * Now with Connection Pooling for better performance (Sprint 2)
      * 
      * @param string $path
      * @param array $opts
@@ -293,8 +315,8 @@ class Meli {
     public function execute($path, $opts = array(), $params = array(), $assoc = false) {
         $uri = $this->make_path($path, $params);
 
-        // Initialize cURL handle
-        $ch = curl_init($uri);
+        // Get reusable cURL handle (Connection Pooling)
+        $ch = $this->getCurlHandle();
         
         // Check if cURL initialization failed
         if ($ch === false) {
@@ -305,8 +327,13 @@ class Meli {
             );
         }
         
+        // Set URL for this specific request
+        curl_setopt($ch, CURLOPT_URL, $uri);
+        
+        // Apply default options
         curl_setopt_array($ch, self::$CURL_OPTS);
 
+        // Apply request-specific options
         if(!empty($opts))
             curl_setopt_array($ch, $opts);
 
@@ -319,7 +346,7 @@ class Meli {
         
         if ($curlErrno !== 0) {
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
+            // Don't close handle here - will be reused
             
             return array(
                 'error' => "cURL Error ($curlErrno): $curlError",
@@ -331,8 +358,8 @@ class Meli {
         // Get HTTP status code
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         
-        // Close cURL handle
-        curl_close($ch);
+        // Don't close cURL handle - it will be reused (Connection Pooling)
+        // It will be closed in __destruct()
         
         // Decode JSON response
         $decodedBody = json_decode($response, $assoc);
@@ -359,6 +386,16 @@ class Meli {
         );
         
         return $return;
+    }
+    
+    /**
+     * Destructor - Clean up cURL handle (Connection Pooling cleanup)
+     */
+    public function __destruct() {
+        if ($this->curlHandle !== null) {
+            curl_close($this->curlHandle);
+            $this->curlHandle = null;
+        }
     }
 
     /**
