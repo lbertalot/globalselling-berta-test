@@ -1,1 +1,59 @@
-{}
+{
+    "name": "mercadolibre/php-sdk",
+    "description": "Official PHP SDK for MercadoLibre API - Simplifies integration with Latin America's largest marketplace",
+    "keywords": [
+        "mercadolibre",
+        "mercadolivre",
+        "api",
+        "sdk",
+        "ecommerce",
+        "marketplace",
+        "oauth",
+        "latin-america"
+    ],
+    "type": "library",
+    "license": "Apache-2.0",
+    "version": "2.0.1",
+    "homepage": "https://developers.mercadolibre.com",
+    "authors": [
+        {
+            "name": "MercadoLibre Developers Team",
+            "email": "developers@mercadolibre.com",
+            "homepage": "https://developers.mercadolibre.com"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/mercadolibre/php-sdk/issues",
+        "source": "https://github.com/mercadolibre/php-sdk",
+        "docs": "https://developers.mercadolibre.com/api-docs",
+        "forum": "https://developers.mercadolibre.com/community"
+    },
+    "require": {
+        "php": ">=5.3.0",
+        "ext-curl": "*",
+        "ext-json": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^4.8 || ^5.0 || ^6.0 || ^7.0 || ^8.0 || ^9.0"
+    },
+    "autoload": {
+        "classmap": [
+            "Meli/"
+        ]
+    },
+    "autoload-dev": {
+        "classmap": [
+            "tests/"
+        ]
+    },
+    "scripts": {
+        "test": "phpunit --configuration tests/phpunit.xml",
+        "test-coverage": "phpunit --configuration tests/phpunit.xml --coverage-html tests/_reports/coverage"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

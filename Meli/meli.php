@@ -3,9 +3,9 @@
 class Meli {
 
 	/**
-	 * @version 2.0.0
+	 * @version 2.0.1
 	 */
-    const VERSION  = "2.0.0";
+    const VERSION  = "2.0.1";
 
     /**
      * @var $API_ROOT_URL is a main URL to access the Meli API's.
@@ -34,7 +34,7 @@ class Meli {
      * Configuration for CURL
      */
     public static $CURL_OPTS = array(
-        CURLOPT_USERAGENT => "MELI-PHP-SDK-2.0.0", 
+        CURLOPT_USERAGENT => "MELI-PHP-SDK-2.0.1", 
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_CONNECTTIMEOUT => 10, 
         CURLOPT_RETURNTRANSFER => 1, 
@@ -54,8 +54,19 @@ class Meli {
      * @param string $client_secret
      * @param string $access_token
      * @param string $refresh_token
+     * @throws InvalidArgumentException if client_id or client_secret are invalid
      */
     public function __construct($client_id, $client_secret, $access_token = null, $refresh_token = null) {
+        // Validate client_id
+        if (empty($client_id) || !is_string($client_id)) {
+            throw new InvalidArgumentException('client_id must be a non-empty string');
+        }
+        
+        // Validate client_secret
+        if (empty($client_secret) || !is_string($client_secret)) {
+            throw new InvalidArgumentException('client_secret must be a non-empty string');
+        }
+        
         $this->client_id = $client_id;
         $this->client_secret = $client_secret;
         $this->access_token = $access_token;
@@ -67,9 +78,21 @@ class Meli {
      * NOTE: You can modify the $AUTH_URL to change the language of login
      * 
      * @param string $redirect_uri
+     * @param string $auth_url
      * @return string
+     * @throws InvalidArgumentException if redirect_uri or auth_url are invalid
      */
     public function getAuthUrl($redirect_uri, $auth_url) {
+        // Validate redirect_uri
+        if (!filter_var($redirect_uri, FILTER_VALIDATE_URL)) {
+            throw new InvalidArgumentException('redirect_uri must be a valid URL');
+        }
+        
+        // Validate auth_url
+        if (empty($auth_url) || !is_string($auth_url)) {
+            throw new InvalidArgumentException('auth_url must be a non-empty string');
+        }
+        
         $this->redirect_uri = $redirect_uri;
         $params = array("client_id" => $this->client_id, "response_type" => "code", "redirect_uri" => $redirect_uri);
         $auth_uri = $auth_url."/authorization?".http_build_query($params);
@@ -82,9 +105,19 @@ class Meli {
      * 
      * @param string $code
      * @param string $redirect_uri
-     * 
+     * @return array
+     * @throws InvalidArgumentException if code or redirect_uri are invalid
      */
     public function authorize($code, $redirect_uri) {
+        // Validate authorization code
+        if (empty($code) || !is_string($code)) {
+            throw new InvalidArgumentException('Authorization code is required and must be a non-empty string');
+        }
+        
+        // Validate redirect_uri if provided
+        if ($redirect_uri && !filter_var($redirect_uri, FILTER_VALIDATE_URL)) {
+            throw new InvalidArgumentException('redirect_uri must be a valid URL');
+        }
 
         if($redirect_uri)
             $this->redirect_uri = $redirect_uri;
@@ -255,21 +288,75 @@ class Meli {
      * @param array $opts
      * @param array $params
      * @param boolean $assoc
-     * @return mixed
+     * @return array Response array with 'body', 'httpCode', and optionally 'error'
      */
     public function execute($path, $opts = array(), $params = array(), $assoc = false) {
         $uri = $this->make_path($path, $params);
 
+        // Initialize cURL handle
         $ch = curl_init($uri);
+        
+        // Check if cURL initialization failed
+        if ($ch === false) {
+            return array(
+                'error' => 'Failed to initialize cURL session',
+                'httpCode' => 0,
+                'body' => null
+            );
+        }
+        
         curl_setopt_array($ch, self::$CURL_OPTS);
 
         if(!empty($opts))
             curl_setopt_array($ch, $opts);
 
-        $return["body"] = json_decode(curl_exec($ch), $assoc);
-        $return["httpCode"] = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
+        // Execute cURL request
+        $response = curl_exec($ch);
+        
+        // Check for cURL errors
+        $curlError = curl_error($ch);
+        $curlErrno = curl_errno($ch);
+        
+        if ($curlErrno !== 0) {
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            
+            return array(
+                'error' => "cURL Error ($curlErrno): $curlError",
+                'httpCode' => $httpCode ? $httpCode : 0,
+                'body' => null
+            );
+        }
+        
+        // Get HTTP status code
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        
+        // Close cURL handle
         curl_close($ch);
+        
+        // Decode JSON response
+        $decodedBody = json_decode($response, $assoc);
+        
+        // Check for JSON decode errors
+        $jsonError = json_last_error();
+        if ($jsonError !== JSON_ERROR_NONE && !empty($response)) {
+            // Log JSON error but still return the response
+            $jsonErrorMsg = function_exists('json_last_error_msg') ? json_last_error_msg() : "JSON Error code: $jsonError";
+            error_log("Meli SDK - JSON decode error: $jsonErrorMsg. Response preview: " . substr($response, 0, 200));
+            
+            // Return raw response if JSON is invalid
+            return array(
+                'body' => $response,
+                'httpCode' => $httpCode,
+                'error' => "JSON decode error: $jsonErrorMsg"
+            );
+        }
+        
+        // Successful response
+        $return = array(
+            'body' => $decodedBody,
+            'httpCode' => $httpCode
+        );
         
         return $return;
     }

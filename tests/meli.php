@@ -1,7 +1,7 @@
 <?php
-require_once '../MercadoLivre/meli.php';
+require_once '../Meli/meli.php';
 
-class InitSDKTest extends PHPUnit_Framework_TestCase
+class InitSDKTest extends PHPUnit\Framework\TestCase
 {				
 
 	protected static $meli;
@@ -12,11 +12,12 @@ class InitSDKTest extends PHPUnit_Framework_TestCase
     protected $access_token = 'a access_token';
     protected $refresh_token = 'a refresh_token';
 
-    public function setUp() {
+    public function setUp(): void {
 
-    	self::$meli = $this->getMock(
-	          'Meli', array('execute'), array($this->client_id, $this->client_secret, $this->access_token, $this->refresh_token)
-	        );
+    	self::$meli = $this->getMockBuilder('Meli')
+	        ->setConstructorArgs(array($this->client_id, $this->client_secret, $this->access_token, $this->refresh_token))
+	        ->setMethods(array('execute'))
+	        ->getMock();
 
     }
     	#auth_url tests
@@ -59,12 +60,13 @@ class InitSDKTest extends PHPUnit_Framework_TestCase
 
 			$this->assertEquals(400, $reponse['httpCode']);
 
-			$this->refresh_token = null;
-			self::$meli = $this->getMock(
-	          'Meli', array('execute'), array($this->client_id, $this->client_secret, $this->access_token, $this->refresh_token)
-	        );
+		$this->refresh_token = null;
+		self::$meli = $this->getMockBuilder('Meli')
+	        ->setConstructorArgs(array($this->client_id, $this->client_secret, $this->access_token, $this->refresh_token))
+	        ->setMethods(array('execute'))
+	        ->getMock();
 
-			$reponse = self::$meli->refreshAccessToken();
+		$reponse = self::$meli->refreshAccessToken();
 
 			$this->assertEquals('Offline-Access is not allowed.', $reponse['error']);
 		}
@@ -186,7 +188,7 @@ class InitSDKTest extends PHPUnit_Framework_TestCase
 		}
 
 		
-    public function tearDown() {
+    public function tearDown(): void {
 		parent::tearDown();
     }
 }
