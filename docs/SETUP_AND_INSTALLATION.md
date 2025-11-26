@@ -43,24 +43,36 @@ php examples/example_get.php
 
 ---
 
-### Opción 3: Composer (Para Proyectos Modernos)
+### Opción 3: Composer (Recomendado para Proyectos Modernos) ✅
 
-Aunque el `composer.json` actual está vacío, puedes integrarlo manualmente:
+El SDK ahora incluye un `composer.json` funcional con autoloading automático:
 
 ```bash
-# 1. En tu proyecto, agregar como dependencia local
+# 1. Clonar el repositorio
+git clone https://github.com/mercadolibre/php-sdk.git
+cd php-sdk
+
+# 2. Instalar dependencias (PHPUnit para desarrollo)
+composer install
+
+# 3. Autoloading automático
+# En tu código PHP:
+require_once 'vendor/autoload.php';
+$meli = new Meli($client_id, $client_secret);
+```
+
+**Para integrar en tu proyecto como dependencia local:**
+
+```bash
+# En tu proyecto, agregar como repositorio local
 composer config repositories.meli-sdk path /ruta/a/php-sdk
 composer require mercadolibre/php-sdk:@dev
+```
 
-# 2. O usar autoload directo
-# En tu composer.json
-{
-    "autoload": {
-        "files": [
-            "vendor/mercadolibre-sdk/Meli/meli.php"
-        ]
-    }
-}
+**📦 Próximamente en Packagist:**
+```bash
+# Una vez publicado (en desarrollo)
+composer require mercadolibre/php-sdk
 ```
 
 ---
