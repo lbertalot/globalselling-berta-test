@@ -1,300 +1,232 @@
-# 📘 Visión General del Proyecto
+## Visión general
 
-## 🎯 Propósito del Proyecto
+Este repositorio contiene el **SDK oficial de Mercado Libre para PHP**.  
+Su objetivo es **simplificar al máximo la integración con la API de Mercado Libre**, ocultando los detalles de HTTP, OAuth 2.0 y serialización JSON detrás de una clase (`Meli`) con métodos de alto nivel.
 
-**MercadoLibre PHP SDK** es el kit de desarrollo oficial en PHP para interactuar con la plataforma de MercadoLibre (el marketplace más grande de América Latina). 
+Está pensado para:
 
-### ¿Qué problema resuelve?
+- **Equipos de producto y backend** que necesitan publicar ítems, consultar órdenes, usuarios, preguntas, etc. a través de la API de Mercado Libre.
+- **Desarrolladores que recién empiezan con la API** y requieren ejemplos completos y ejecutables.
+- **Despliegues rápidos en Heroku**, usando el botón de deploy o el archivo `app.json`.
 
-Este SDK simplifica la integración con la API de MercadoLibre al proporcionar:
+En otras palabras, el SDK resuelve el problema de:
 
-- **Gestión automatizada del flujo OAuth 2.0**: Maneja autenticación, autorización y renovación de tokens sin esfuerzo manual.
-- **Abstracción de peticiones HTTP**: Envuelve las operaciones CRUD (GET, POST, PUT, DELETE) a la API REST de MercadoLibre.
-- **Manejo multi-país**: Soporte nativo para todos los sitios de MercadoLibre (Argentina, Brasil, México, Colombia, Chile, etc.).
-- **Reducción de boilerplate**: Elimina la necesidad de escribir código repetitivo para autenticación y peticiones HTTP.
-
-### Casos de uso principales
-
-1. **Publicar productos programáticamente** en MercadoLibre desde sistemas ERP/PIM
-2. **Sincronizar inventarios** entre tiendas físicas y el marketplace
-3. **Gestionar pedidos y preguntas** de clientes de forma automatizada
-4. **Construir aplicaciones de terceros** que extiendan la funcionalidad de MercadoLibre
+> “Quiero consumir la API de Mercado Libre desde PHP sin reimplementar OAuth, manejo de tokens, ni clientes HTTP.”
 
 ---
 
-## 🛠️ Stack Tecnológico
+## Stack tecnológico
 
-### Lenguaje y Runtime
-- **PHP** >= 5.3 (compatible con versiones modernas hasta PHP 8.x)
-- No requiere frameworks adicionales (SDK standalone)
+- **Lenguaje principal: PHP**
+  - Toda la lógica del SDK está implementada en PHP procedural/orientado a objetos.
+  - `index.php` actúa como aplicación de ejemplo / landing para el SDK.
 
-### Dependencias Core
-| Tecnología | Propósito | Justificación |
-|------------|-----------|---------------|
-| **cURL** | Cliente HTTP | Estándar de PHP para peticiones HTTP/HTTPS con soporte SSL/TLS robusto |
-| **JSON** | Serialización de datos | Formato nativo de la API de MercadoLibre |
-| **Sessions (PHP)** | Gestión de estado | Almacenamiento temporal de access_tokens en ejemplos |
+- **Librerías nativas de PHP**
+  - **cURL**: usada internamente por la clase `Meli` para realizar llamadas HTTP (`GET`, `POST`, `PUT`, `DELETE`, `OPTIONS`) hacia `https://api.mercadolibre.com`.
+  - **JSON**: serialización y deserialización de cuerpos de petición y respuesta.
+  - **Sesiones (`$_SESSION`)**: almacenamiento de `access_token`, `refresh_token` y expiración en ejemplos y en `index.php`.
 
-### Protocolo de Autenticación
-- **OAuth 2.0** (Authorization Code Grant)
-  - Flujo de autorización estándar web
-  - Soporte para `refresh_token` (offline access)
+- **Plataforma de despliegue**
+  - **Heroku (PaaS)**:
+    - `app.json` define el buildpack `heroku/php` y las variables de entorno necesarias (`App_ID`, `Secret_Key`, `Redirect_URI`).
+    - Pensado para desplegar una **aplicación de demostración** que usa el SDK.
 
-### APIs Externas
-- **MercadoLibre API REST** (https://api.mercadolibre.com)
-- **MercadoLibre Auth Servers** (múltiples endpoints según el país)
-
-### Herramientas de Desarrollo
-- **PHPUnit**: Framework de testing (presente en `/tests`)
-- **Composer**: Gestor de dependencias (preparado para usar con `composer.json`)
-- **Git**: Control de versiones
+- **Testing**
+  - **PHPUnit**:
+    - En `tests/` hay pruebas unitarias para la clase `Meli` y reportes de cobertura generados.
+    - Uso extensivo de **mocks** para simular respuestas de la API y del flujo OAuth.
 
 ---
 
-## 🏗️ Arquitectura de Alto Nivel
+## Arquitectura de alto nivel
 
-### Tipo de Arquitectura
-**SDK Client Library** con patrón **Adapter/Wrapper** sobre cURL.
+La arquitectura es la de una **librería cliente (SDK) monolítica** con:
+
+- Una **clase núcleo**: `Meli` (`Meli/meli.php`), que encapsula:
+  - Construcción de URLs de la API.
+  - Flujo OAuth 2.0 (authorization code, refresh token).
+  - Ejecución de requests HTTP con cURL.
+- Una **aplicación de ejemplo**:
+  - `index.php` como landing page/tutorial.
+  - Carpeta `examples/` con scripts que muestran casos de uso concretos: login OAuth, publicación de ítems, borrado de preguntas, actualización de descripciones, etc.
+- **Sin base de datos propia**:
+  - El estado se mantiene en **sesión HTTP** y variables de entorno.
+  - Toda la “persistencia real” ocurre en la **API de Mercado Libre**.
+
+Arquitectónicamente se puede describir como:
+
+- **Patrón Gateway / Service Client**: la clase `Meli` es una fachada que expone una API de alto nivel sobre la API HTTP externa.
+- **Sample App / Quickstart**: el resto del proyecto funciona como ejemplo de referencia para integradores.
+
+### Diagrama de arquitectura (alto nivel)
 
 ```mermaid
-graph TB
-    subgraph "Aplicación del Desarrollador"
-        A[App PHP del Usuario]
-    end
-    
-    subgraph "MercadoLibre PHP SDK"
-        B[Clase Meli]
-        C[OAuth Handler]
-        D[HTTP Client cURL]
-        E[JSON Parser]
-    end
-    
-    subgraph "MercadoLibre Platform"
-        F[Auth Server OAuth 2.0]
-        G[API REST]
-    end
-    
-    A -->|1. Crea instancia| B
-    A -->|2. Solicita AuthURL| B
-    B -->|3. Genera URL| C
-    C -->|4. Redirige usuario| F
-    F -->|5. Callback con code| A
-    A -->|6. Llama authorize| B
-    B -->|7. Exchange code| C
-    C -->|8. POST /oauth/token| D
-    D -->|9. Petición HTTPS| F
-    F -->|10. access_token| D
-    D -->|11. Retorna| C
-    C -->|12. Almacena tokens| B
-    B -->|13. Devuelve tokens| A
-    A -->|14. Operaciones API| B
-    B -->|15. Construye request| D
-    D -->|16. GET/POST/PUT/DELETE| G
-    G -->|17. JSON Response| D
-    D -->|18. Decodifica| E
-    E -->|19. Devuelve objeto| B
-    B -->|20. Retorna datos| A
-    
-    style A fill:#e1f5ff
-    style B fill:#ffe1e1
-    style F fill:#e1ffe1
-    style G fill:#e1ffe1
+flowchart LR
+
+subgraph Client["Navegador del desarrollador / usuario final"]
+  BROWSER["Browser\n(HTML + CSS de ejemplo)"]
+end
+
+subgraph Heroku["Dyno PHP en Heroku (u otro servidor PHP)"]
+  INDEX["index.php\nApp de demostración"]
+  EXAMPLES["/examples/*.php\nScripts de ejemplo"]
+  SDK["Meli/meli.php\nSDK PHP (clase Meli)"]
+  CONFIG["configApp.php\nCredenciales y site_id"]
+end
+
+subgraph MLAPI["Mercado Libre Platform"]
+  API["API REST\nhttps://api.mercadolibre.com"]
+  AUTH["Servidor OAuth\nMeli::$AUTH_URL[site_id]"]
+end
+
+subgraph DevPortal["Developer Experience"]
+  DASHBOARD["My Apps\n(Mercado Libre)"]
+end
+
+BROWSER --> INDEX
+INDEX --> EXAMPLES
+INDEX --> SDK
+EXAMPLES --> SDK
+SDK --> API
+SDK --> AUTH
+CONFIG --> INDEX
+CONFIG --> EXAMPLES
+DASHBOARD --> CONFIG
 ```
 
-### Flujo de Comunicación Simplificado
+---
+
+## Modelos de datos principales (conceptuales)
+
+El SDK no define entidades ricas propias; trabaja principalmente con:
+
+- **Tokens de autenticación**
+  - `access_token`, `refresh_token`, `expires_in`:
+    - Obtenidos y refrescados vía `Meli::authorize()` y `Meli::refreshAccessToken()`.
+    - Almacenados en `$_SESSION` por los ejemplos (`index.php`, `examples/example_login.php`, etc.).
+
+- **Recursos de la API de Mercado Libre**
+  - Representados como **arrays asociativos PHP** que luego se convierten a JSON.
+  - Ejemplos:
+    - **Sitio**: resultado de `GET /sites/{site_id}`.
+    - **Ítem**: cuerpo enviado a `POST /items` para publicar un producto.
+    - **Pregunta**: usada en `DELETE /questions/{id}`.
+    - **Descripción de ítem**: actualizada vía `PUT /items/{id}/descriptions`.
+
+A nivel de diseño, el “modelo” principal es el propio **cliente `Meli`**, que conoce:
+
+- El **endpoint raíz** de la API (`https://api.mercadolibre.com`).
+- Las **URLs de autenticación** por país (`Meli::$AUTH_URL`).
+- Cómo construir rutas (`make_path`), ejecutar cURL (`execute`) y mapear resultados.
+
+---
+
+## Flujos de negocio críticos
+
+### 1. Autenticación OAuth 2.0 (Authorization Code)
+
+Este flujo es el corazón del SDK, ya que sin un `access_token` válido no es posible interactuar con recursos protegidos.
+
+Pasos típicos:
+
+1. **Configurar credenciales de la app**
+   - Definidas como variables de entorno en Heroku (`App_ID`, `Secret_Key`, `Redirect_URI`) o directamente en `configApp.php`.
+2. **Instanciar el cliente**
+   - `new Meli($appId, $secretKey);`
+3. **Obtener URL de login**
+   - `getAuthUrl($redirectURI, Meli::$AUTH_URL[$siteId])`
+   - Se redirige al usuario a la pantalla de login/autorización de Mercado Libre.
+4. **Recibir `code` en el callback**
+   - Mercado Libre redirige a `Redirect_URI` con `?code=...`.
+5. **Intercambiar `code` por tokens**
+   - `authorize($code, $redirectURI)` devuelve `access_token`, `refresh_token` y `expires_in`.
+6. **Guardar tokens en sesión**
+   - Ejemplos guardan todo en `$_SESSION` para uso posterior.
+7. **Refrescar tokens cuando expiran**
+   - `refreshAccessToken()` usa el `refresh_token` para obtener un nuevo `access_token`.
+
+Diagrama simplificado:
 
 ```mermaid
 sequenceDiagram
-    participant User as Usuario Final
-    participant App as App del Desarrollador
-    participant SDK as Meli SDK
-    participant AuthServer as MercadoLibre Auth
-    participant API as MercadoLibre API
+    participant User as Usuario
+    participant App as App PHP (index.php / examples)
+    participant SDK as SDK PHP (Meli)
+    participant Auth as Servidor OAuth ML
 
-    Note over App,SDK: 1. AUTENTICACIÓN OAUTH 2.0
-    App->>SDK: new Meli(clientId, clientSecret)
-    App->>SDK: getAuthUrl(redirectUri)
-    SDK-->>App: URL de autorización
-    App->>User: Redirige a URL de login
-    User->>AuthServer: Inicia sesión y autoriza app
-    AuthServer->>App: Callback con code
-    App->>SDK: authorize(code, redirectUri)
-    SDK->>AuthServer: POST /oauth/token (code)
-    AuthServer-->>SDK: access_token + refresh_token
-    SDK-->>App: Tokens almacenados
-
-    Note over App,API: 2. OPERACIONES EN LA API
-    App->>SDK: get('/users/me', {access_token})
-    SDK->>API: GET https://api.mercadolibre.com/users/me
-    API-->>SDK: JSON Response
-    SDK-->>App: Objeto PHP con datos
-
-    Note over App,API: 3. PUBLICAR UN ITEM
-    App->>SDK: post('/items', itemData, {access_token})
-    SDK->>API: POST https://api.mercadolibre.com/items
-    API-->>SDK: Item creado (JSON)
-    SDK-->>App: Objeto con item_id y permalink
-
-    Note over App,AuthServer: 4. RENOVACIÓN DE TOKEN
-    App->>SDK: refreshAccessToken()
-    SDK->>AuthServer: POST /oauth/token (refresh_token)
-    AuthServer-->>SDK: Nuevo access_token
-    SDK-->>App: Tokens actualizados
+    User->>App: Accede a / o /examples
+    App->>SDK: getAuthUrl(redirect_uri, AUTH_URL[site])
+    SDK->>Auth: Construye URL de autorización
+    App-->>User: Redirección a Auth
+    User->>Auth: Login + Autorización
+    Auth-->>App: Redirect a redirect_uri?code=XYZ
+    App->>SDK: authorize(code, redirect_uri)
+    SDK->>Auth: POST /oauth/token
+    Auth-->>SDK: access_token, refresh_token, expires_in
+    SDK-->>App: Tokens
+    App->>App: Guarda tokens en $_SESSION
 ```
 
 ---
 
-## 📦 Componentes Principales
+### 2. Consumo de la API REST (GET/POST/PUT/DELETE/OPTIONS)
 
-### Arquitectura Monolítica
+Una vez autenticado, la aplicación utiliza métodos de la clase `Meli` para operar sobre la API:
 
-El SDK utiliza un **enfoque monolítico** donde toda la funcionalidad está contenida en clases principales simples:
+- **GET** (`get($path, $params)`):
+  - Ejemplo: `GET /sites/{site_id}` para obtener metadatos del sitio.
+- **POST** (`post($path, $body, $params)`):
+  - Ejemplo: `POST /items` para publicar un ítem.
+- **PUT** (`put($path, $body, $params)`):
+  - Ejemplo: actualizar la descripción de un ítem.
+- **DELETE** (`delete($path, $params)`):
+  - Ejemplo: borrar una pregunta (`/questions/{id}`).
+- **OPTIONS** (`options($path, $params)`):
+  - Para conocer métodos soportados por un recurso.
 
-### 1. Clase `Meli` (Core - Monolítico)
-**Responsabilidad**: Componente principal que agrupa toda la funcionalidad
-- ✅ Gestión de credenciales (client_id, client_secret)
-- ✅ Métodos públicos para OAuth (authorize, refreshAccessToken, getAuthUrl)
-- ✅ Métodos HTTP (get, post, put, delete, options)
-- ✅ Constructor de URLs (make_path)
-- ✅ Ejecución de peticiones cURL (execute)
-- ✅ Validación de inputs (Sprint 1)
-- ✅ Manejo robusto de errores (Sprint 1)
-- ✅ Connection Pooling para performance (Sprint 2)
+Cada uno de estos métodos:
 
-**Nota importante**: A diferencia de otros SDKs, `Meli` no está separado en componentes individuales (OAuth Handler, HTTP Client, etc.). Todo está integrado en una sola clase para simplicidad.
-
-### 2. Clase `RateLimitedMeli` (Opcional - Sprint 2)
-**Responsabilidad**: Extensión opcional para rate limiting automático
-- ✅ Extiende la clase `Meli` base
-- ✅ Implementa throttling automático de peticiones
-- ✅ Previene errores HTTP 429 (Too Many Requests)
-- ✅ Configurable: límite de requests y ventana de tiempo
-- ✅ Callbacks para logging personalizado
-
-**Uso**:
-```php
-// Usar RateLimitedMeli para aplicaciones con alto volumen
-$meli = new RateLimitedMeli($appId, $secretKey);
-$meli->setRateLimit(50, 60); // 50 requests por minuto
-```
+- Construye la URL final con `make_path`.
+- Serializa el `body` a JSON cuando aplica.
+- Configura cURL con los headers y verbo HTTP adecuados.
+- Devuelve un array PHP con:
+  - `body`: respuesta JSON decodificada.
+  - `httpCode`: código HTTP de la respuesta.
 
 ---
 
-## 🌍 Soporte Multi-Región
+### 3. Ejemplos de negocio incluidos
 
-El SDK soporta **14 sitios** de MercadoLibre:
+- **Autenticación y mantenimiento de sesión**
+  - `examples/example_login.php` y la sección OAuth en `index.php`.
+- **Consulta de información de sitios**
+  - `examples/example_get.php` (`GET /sites/{site_id}`).
+- **Publicación de ítems de prueba**
+  - `examples/example_list_item.php` y la sección “Publish an Item” en `index.php`.
+- **Gestión de preguntas y descripciones**
+  - `examples/example_delete_question.php`: borra una pregunta.
+  - `examples/example_put_description.php`: actualiza la descripción de un ítem.
 
-| Site ID | País | Auth URL |
-|---------|------|----------|
-| MLA | 🇦🇷 Argentina | https://auth.mercadolibre.com.ar |
-| MLB | 🇧🇷 Brasil | https://auth.mercadolivre.com.br |
-| MLM | 🇲🇽 México | https://auth.mercadolibre.com.mx |
-| MCO | 🇨🇴 Colombia | https://auth.mercadolibre.com.co |
-| MLC | 🇨🇱 Chile | https://auth.mercadolibre.cl |
-| MLU | 🇺🇾 Uruguay | https://auth.mercadolibre.com.uy |
-| MPE | 🇵🇪 Perú | https://auth.mercadolibre.com.pe |
-| MLV | 🇻🇪 Venezuela | https://auth.mercadolibre.com.ve |
-| MCR | 🇨🇷 Costa Rica | https://auth.mercadolibre.com.cr |
-| MPA | 🇵🇦 Panamá | https://auth.mercadolibre.com.pa |
-| MEC | 🇪🇨 Ecuador | https://auth.mercadolibre.com.ec |
-| MRD | 🇩🇴 República Dominicana | https://auth.mercadolibre.com.do |
-| MPT | 🇵🇹 Portugal | https://auth.mercadolibre.com.pt |
-| CBT | 🌐 Cross Border Trade | https://global-selling.mercadolibre.com |
+Estos ejemplos sirven como **recetas de negocio** que un desarrollador puede copiar, adaptar y extender en su propia aplicación.
 
 ---
 
-## 🎨 Modelo de Diseño
+## Público objetivo y estrategia de contribución
 
-### Patrón Principal: **Client Library / SDK Pattern**
-```mermaid
-classDiagram
-    class Meli {
-        -string client_id
-        -string client_secret
-        -string access_token
-        -string refresh_token
-        -string redirect_uri
-        +__construct(client_id, client_secret, access_token, refresh_token)
-        +getAuthUrl(redirect_uri, auth_url) string
-        +authorize(code, redirect_uri) array
-        +refreshAccessToken() array
-        +get(path, params, assoc) mixed
-        +post(path, body, params) mixed
-        +put(path, body, params) mixed
-        +delete(path, params) mixed
-        +options(path, params) mixed
-        -execute(path, opts, params, assoc) array
-        -make_path(path, params) string
-    }
-    
-    class Application {
-        +inicializa SDK
-        +gestiona flujo OAuth
-        +realiza operaciones CRUD
-    }
-    
-    class MercadoLibreAPI {
-        +endpoints REST
-        +OAuth server
-    }
-    
-    Application --> Meli : usa
-    Meli --> MercadoLibreAPI : consume
-```
+- **Onboarding de nuevos desarrolladores**
+  - Leer primero `README.md` (uso básico del SDK).
+  - Revisar este `OVERVIEW.md` para entender arquitectura y flujos.
+  - Ejecutar `index.php` y los scripts en `examples/` para ver la integración end‑to‑end.
 
-### Patrones Detectados
-1. **Facade Pattern**: La clase `Meli` oculta la complejidad de OAuth y cURL
-2. **Template Method**: `execute()` es el método base que usan get(), post(), put(), delete()
-3. **Adapter Pattern**: Adapta cURL a una interfaz simple (get/post/put/delete)
+- **Comunidad open source**
+  - El SDK está diseñado como **capa delgada**: facilita contribuciones incrementales (`pull requests` que agreguen nuevos helpers, mejores validaciones, etc.).
+  - Las pruebas en `tests/` y los reportes en `tests/_reports/` ayudan a asegurar que los cambios mantengan la compatibilidad.
 
----
+Para colaborar:
 
-## 🚀 Valor para Desarrolladores
+- Hacer fork del repositorio.
+- Crear una rama temática.
+- Agregar o ajustar pruebas en `tests/`.
+- Proponer mejoras a la clase `Meli` o nuevos ejemplos de negocio.
 
-### Para Desarrolladores Junior
-- **Curva de aprendizaje suave**: Solo necesitas instanciar `Meli` y llamar métodos
-- **Ejemplos abundantes**: 5 ejemplos funcionales en `/examples`
-- **Sin dependencias complejas**: PHP puro sin frameworks
-
-### Para Desarrolladores Senior
-- **Código limpio y extensible**: Fácil de heredar o decorar
-- **Testing preparado**: Suite de tests con PHPUnit
-- **Deploy a Heroku listo**: Botón one-click para demo
-- **Producción-ready**: Manejo de SSL, timeouts configurables, refresh automático
-
----
-
-## 📊 Métricas del Proyecto
-
-- **Versión actual**: 2.1.0
-- **Líneas de código core**: ~450 LOC (clase Meli + RateLimitedMeli)
-- **Complejidad ciclomática**: Baja-Media (funciones directas con validación)
-- **Cobertura de tests**: 30+ tests (Sprint 1 + Sprint 2)
-- **Performance**: +30-40% con Connection Pooling (Sprint 2)
-- **Seguridad**: 85/100 (Sprint 1 + Sprint 2)
-- **Licencia**: Open Source (Apache 2.0)
-
----
-
-## 🔗 Enlaces Importantes
-
-- **Portal de Desarrolladores**: https://developers.mercadolibre.com
-- **API Docs**: https://developers.mercadolibre.com/api-docs
-- **Crear Aplicación**: https://developers.mercadolibre.com/apps/home
-- **Comunidad**: https://developers.mercadolibre.com/community
-
----
-
-## 🎓 Próximos Pasos
-
-1. Leer [SETUP_AND_INSTALLATION.md](./SETUP_AND_INSTALLATION.md) para configurar el SDK
-2. Revisar [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) para entender la organización del código
-3. Estudiar [API_REFERENCE.md](./API_REFERENCE.md) para ver todos los métodos disponibles
-4. Explorar [EXAMPLES.md](./EXAMPLES.md) para casos de uso reales
-5. Consultar [CONTRIBUTING.md](./CONTRIBUTING.md) si deseas contribuir
-
----
-
-**Última actualización**: Noviembre 2025  
-**Mantenedor**: MercadoLibre Developers Team
 
